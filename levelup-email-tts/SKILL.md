@@ -147,13 +147,14 @@ It reads a JSON array from a file path passed as the first argument. Each object
 - `body_html` — HTML body (may be empty string)
 - `sender` — (optional) sender name, used as ID3 artist tag
 
-Write the JSON to `/tmp/levelup_emails.json` using the Write tool, then invoke the script:
+Write the email data to `/tmp/levelup_emails.json`, then run:
 
 ```bash
-cd ~/devel/kokoro-pdf-tts && uv run python ~/.claude/skills/levelup-email-tts/scripts/run_tts.py /tmp/levelup_emails.json
+cd ~/devel/kokoro-pdf-tts && \
+  cat /tmp/levelup_emails.json | uv run python ~/.claude/skills/levelup-email-tts/scripts/run_tts.py
 ```
 
-Example `/tmp/levelup_emails.json`:
+Example data file (`/tmp/levelup_emails.json`):
 ```json
 [
   {
