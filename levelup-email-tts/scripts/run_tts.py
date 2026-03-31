@@ -38,19 +38,19 @@ VOICE_MAP = [
 ]
 DEFAULT_VOICE = "af_bella"              # fallback for unrecognised series
 
-# Lazy-loaded 70/30 blend of am_michael + am_adam for Level Up Newsletter.
+# Lazy-loaded 50/50 blend of am_michael + am_adam for Level Up Newsletter.
 _LEVELUP_VOICE = None
 
 
 def get_levelup_voice():
-    """Return a blended voice tensor: am_michael 70% + am_adam 30%."""
+    """Return a blended voice tensor: am_michael 50% + am_adam 50%."""
     global _LEVELUP_VOICE
     if _LEVELUP_VOICE is None:
         from kokoro import KPipeline
         _pipe = KPipeline(lang_code="a")
         t1 = _pipe.load_voice("am_michael")
         t2 = _pipe.load_voice("am_adam")
-        _LEVELUP_VOICE = 0.7 * t1 + 0.3 * t2
+        _LEVELUP_VOICE = 0.5 * t1 + 0.5 * t2
     return _LEVELUP_VOICE
 
 
@@ -130,7 +130,7 @@ def process_email(subject, date_str, body_plain, body_html, sender="", voice=Non
         return None
 
     chosen_voice = voice or pick_voice(subject, sender=sender)
-    voice_label = "am_michael+am_adam(70/30)" if isinstance(chosen_voice, torch.FloatTensor) else chosen_voice
+    voice_label = "am_michael+am_adam(50/50)" if isinstance(chosen_voice, torch.FloatTensor) else chosen_voice
     print(f"  Text length: {len(text)} chars  |  voice: {voice_label}")
     text_to_audio(text, voice=chosen_voice, output_file=out_path)
     tag_mp3(out_path, subject=subject, date_str=date_str, sender=sender)

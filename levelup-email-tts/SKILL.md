@@ -1,30 +1,58 @@
 ---
 name: levelup-email-tts
 description: >
-  Fetch emails from the Gmail "levelup" label received in the last 7 days and
-  convert each one to an MP3 audio file using Kokoro TTS (pdf_tts.py). Use this
-  skill whenever the user asks to convert their levelup emails to audio, listen
-  to their levelup newsletter, or process their weekly levelup emails as speech.
+  Fetch emails from the Gmail "levelup" label and convert each one to an MP3
+  audio file using Kokoro TTS (pdf_tts.py). Checks the audiobookshelf server
+  for the latest existing audio file and only fetches emails newer than that,
+  so no emails are missed even if older than 7 days. Use this skill whenever
+  the user asks to convert their levelup emails to audio, listen to their
+  levelup newsletter, or process their weekly levelup emails as speech.
   Also trigger when the user says something like "do the levelup emails",
   "convert my newsletters to audio", or "run the email TTS pipeline".
 ---
 
 # LevelUp Email → Audio Skill
 
-Convert Gmail "levelup" label emails from the past 7 days into MP3 files using
-Kokoro TTS.
+Convert Gmail "levelup" label emails into MP3 files using Kokoro TTS, starting
+from the date of the latest already-converted file on the audiobookshelf server.
 
 ## Overview
 
-1. Search Gmail for messages with the `levelup` label received in the last 7 days
-2. For each message: read the full body (HTML preferred), strip boilerplate, convert to audio
-3. Save MP3 files to `~/devel/kokoro-pdf-tts/audio/levelup`
+1. SSH to `carl@nuc` to find the latest existing audio file and determine the cutoff date
+2. Search Gmail for messages with the `levelup` label newer than that date
+3. For each message: read the full body (HTML preferred), strip boilerplate, convert to audio
+4. Save MP3 files to `~/devel/kokoro-pdf-tts/audio/levelup`
 
 ---
 
-## Step 1 — Find emails
+## Step 1 — Determine cutoff date from server
 
-Use the `gmail_search_messages` MCP tool with this query:
+Run this command to list existing files on the audiobookshelf server:
+
+```bash
+ssh carl@nuc -t ls containers/audiobookshelf/podcasts/LevelUp
+```
+
+Files are named `YYYY-MM-DD_<slug>.mp3`. Parse the filenames to find the latest
+date. Use that date as the Gmail search cutoff (`after:YYYY/MM/DD`).
+
+If the directory is empty or the command returns no files, use `after:2020/01/01`
+to fetch all available emails rather than assuming a recent window.
+
+**Example:** if the latest file is `2026-03-14_friday-forward.mp3`, search Gmail
+for `label:levelup after:2026/03/14`.
+
+---
+
+## Step 2 — Find emails
+
+Use the `gmail_search_messages` MCP tool with the cutoff date from Step 1:
+
+```
+label:levelup after:YYYY/MM/DD
+```
+
+or the fallback:
 
 ```
 label:levelup newer_than:7d
@@ -34,7 +62,7 @@ If no messages are found, tell the user and stop.
 
 ---
 
-## Step 2 — Read each message
+## Step 3 — Read each message
 
 For each result, call `gmail_read_message` with the message ID.
 
@@ -61,7 +89,7 @@ If no HTML is available, Route B (plain-text fallback) works well.
 
 ---
 
-## Step 3 — Clean and strip boilerplate
+## Step 4 — Clean and strip boilerplate
 
 The bundled `clean_email.py` script handles this. It **always strips** newsletter
 header/footer boilerplate — unsubscribe links, manage-preferences notices,
@@ -133,7 +161,7 @@ text_to_audio(text, output_file=out_path)
 
 ---
 
-## Step 4 — Run the pipeline
+## Step 5 — Run the pipeline
 
 The orchestration logic lives in a permanent script:
 ```
@@ -195,7 +223,7 @@ After all conversions, report to the user:
 |------------------------------|----------------------------------|------------------------|
 | Subject starts with `TBL:`   | `af_heart`                       | female (US)            |
 | Subject starts with `Friday Forward` | `af_heart`               | female (US)            |
-| Sender contains `level up newsletter` | `am_michael` 70% + `am_adam` 30% | blended male (US) |
+| Sender contains `level up newsletter` | `am_michael` 50% + `am_adam` 50% | blended male (US) |
 | *(other/unknown)*            | `af_bella`                       | female fallback        |
   The `voice` field in the JSON input overrides the automatic mapping.
   Available voices: `af_heart`, `af_bella`, `af_nicole`, `af_sarah`, `af_sky`,
